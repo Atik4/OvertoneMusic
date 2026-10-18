@@ -38,17 +38,22 @@ To add built-in lessons, edit `src/pieces.ts`. The notation is simple text, e.g.
 
 ### ABRSM Grade 1 pieces
 
-The *ABRSM Grade 1* group in the piece list holds the nine exam pieces (A1–C3), converted from a scan of the book with [Audiveris](https://github.com/Audiveris/audiveris) and then checked against the scan bar by bar. The files live in `public/grade1/`, which is git-ignored because the music is copyrighted: keep them for your own practice.
+The *ABRSM Grade 1* group in the piece list holds the nine exam pieces (A1–C3), converted from a scan of the book with [Audiveris](https://github.com/Audiveris/audiveris) and then checked against the scan bar by bar. The files live in `public/grade1/`. The music is copyrighted: keep it for your own practice and keep the hosted site private (see *Hosting it*).
 
-Songs you add the same way go in `public/songs/` (also git-ignored), listed under *My songs*: Raabta is there now.
+Songs you add the same way go in `public/songs/`, listed under *My songs*.
 
 To convert another scanned book the same way, run `Audiveris -batch -transcribe -export -output <folder> book.pdf` (the app is in `/Applications/Audiveris.app/Contents/MacOS/`). Pages with no music make the export fail, so pass `-sheets 5-13` (or whichever pages have music). Then check every piece against the book: Audiveris often drops whole notes, misreads triplets and reads slurs as ties.
 
-## Hosting it (Vercel)
+## Hosting it (Vercel), privately
 
-It's a static site: Vercel detects Vite, runs `npm run build` and serves `dist/`. Push this repo to GitHub, then *Add New → Project* in Vercel and import it; no settings needed. HTTPS (which Vercel gives you) is required for the microphone and MIDI.
+This repo includes copyrighted music (the ABRSM Grade 1 pieces and *My songs*) for personal practice, so the hosted site must be **private to you**:
 
-The Grade 1 pieces and *My songs* are copyrighted, so `public/grade1/` and `public/songs/` are git-ignored and are **not** deployed. The app simply leaves pieces it can't find out of the list, so the hosted version has the built-in lessons, and you can still open your own MusicXML there (it's saved in that browser only).
+1. Keep the GitHub repo **private**.
+2. In Vercel: *Settings → Deployment Protection* → **Vercel Authentication**, scope **All Deployments** (free on every plan). Turn this on *before* the music is deployed.
+3. Check it: open the site in a private/incognito window. You must get Vercel's login page, not the app.
+4. On your tablet or phone, sign in to Vercel once in the browser; after that the site opens normally.
+
+It's a static site: Vercel detects Vite, runs `npm run build` and serves `dist/`. HTTPS (which Vercel gives you) is required for the microphone. Pieces whose file is missing are simply left out of the list.
 
 ## Code map
 

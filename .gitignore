@@ -1,8 +1,5 @@
 node_modules
 dist
-# Copyrighted music (exam pieces from your book, film songs): keep it local.
-public/grade1
-public/songs
 .DS_Store
 *.log
 .vercel
