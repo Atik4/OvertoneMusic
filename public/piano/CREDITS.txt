@@ -1,0 +1,4 @@
+Salamander Grand Piano V3 by Alexander Holm
+License: Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/)
+Source: https://archive.org/details/SalamanderGrandPianoV3
+MP3 conversion: @audio-samples/piano-mp3-velocity8 (npm). Files renamed: "D#4v8.mp3" -> "Ds4.mp3".

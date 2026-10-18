@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Piano Coach</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎹</text></svg>" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">🎹 Piano Coach</div>
+      <nav id="tabs">
+        <button data-tab="practice" class="active">Practice</button>
+        <button data-tab="reading">Note Reading</button>
+        <button data-tab="ear">Ear Training</button>
+        <button data-tab="setup">Setup</button>
+      </nav>
+      <div class="status">
+        <span id="st-input" class="chip">No input</span>
+        <span id="st-heard" class="chip heard" title="Last note heard">—</span>
+        <span id="st-streak" class="chip"></span>
+      </div>
+    </header>
+    <div id="audio-banner" class="banner hidden">Click anywhere to turn on sound and the microphone.</div>
+    <main>
+      <section id="tab-practice" class="tab active"></section>
+      <section id="tab-reading" class="tab"></section>
+      <section id="tab-ear" class="tab"></section>
+      <section id="tab-setup" class="tab"></section>
+    </main>
+    <footer id="kbd"></footer>
+    <button id="kbd-toggle" title="Show or hide the on-screen keyboard"></button>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
