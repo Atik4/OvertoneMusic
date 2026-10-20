@@ -7785,18 +7785,6 @@
       <note default-x="133">
         <pitch>
           <step>B</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="4">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="133">
-        <chord />
-        <pitch>
-          <step>B</step>
           <octave>2</octave>
         </pitch>
         <duration>12</duration>
@@ -7900,18 +7888,6 @@
         <duration>48</duration>
       </backup>
       <note default-x="14">
-        <pitch>
-          <step>A</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="1">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
         <pitch>
           <step>A</step>
           <octave>2</octave>
@@ -8104,18 +8080,6 @@
       <note default-x="60">
         <pitch>
           <step>E</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-15">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="60">
-        <chord />
-        <pitch>
-          <step>E</step>
           <octave>2</octave>
         </pitch>
         <duration>12</duration>
@@ -8280,18 +8244,6 @@
         <duration>48</duration>
       </backup>
       <note default-x="14">
-        <pitch>
-          <step>F</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-9">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
         <pitch>
           <step>F</step>
           <octave>2</octave>
@@ -8462,18 +8414,6 @@
         <duration>48</duration>
       </backup>
       <note default-x="14">
-        <pitch>
-          <step>G</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-5">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
         <pitch>
           <step>G</step>
           <octave>2</octave>
@@ -8647,18 +8587,6 @@
         <duration>48</duration>
       </backup>
       <note default-x="14">
-        <pitch>
-          <step>F</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-9">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
         <pitch>
           <step>F</step>
           <octave>2</octave>
@@ -9213,18 +9141,6 @@
       <note default-x="14">
         <pitch>
           <step>G</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-5">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
-        <pitch>
-          <step>G</step>
           <octave>2</octave>
         </pitch>
         <duration>12</duration>
@@ -9387,18 +9303,6 @@
         <duration>48</duration>
       </backup>
       <note default-x="14">
-        <pitch>
-          <step>F</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-9">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
         <pitch>
           <step>F</step>
           <octave>2</octave>
@@ -9589,18 +9493,6 @@
       <note default-x="57">
         <pitch>
           <step>E</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-14">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="58">
-        <chord />
-        <pitch>
-          <step>E</step>
           <octave>2</octave>
         </pitch>
         <duration>12</duration>
@@ -9765,18 +9657,6 @@
       <note default-x="14">
         <pitch>
           <step>D</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-19">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
-        <pitch>
-          <step>D</step>
           <octave>2</octave>
         </pitch>
         <duration>12</duration>
@@ -9906,18 +9786,6 @@
         <duration>48</duration>
       </backup>
       <note default-x="13">
-        <pitch>
-          <step>G</step>
-          <octave>1</octave>
-        </pitch>
-        <duration>12</duration>
-        <voice>5</voice>
-        <type>quarter</type>
-        <stem default-y="-5">up</stem>
-        <staff>2</staff>
-      </note>
-      <note default-x="14">
-        <chord />
         <pitch>
           <step>G</step>
           <octave>2</octave>

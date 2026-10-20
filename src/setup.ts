@@ -30,6 +30,9 @@ export function init(el: HTMLElement) {
     <h3>1 · Connect your piano</h3>
     <p><b>Best:</b> a digital piano or keyboard with a USB (MIDI) cable. Notes are detected instantly and exactly, chords included. Works in Chrome or Edge.</p>
     <div class="row"><button class="primary" id="s-midi">🎹 Connect MIDI keyboard</button><span id="s-midi-st" class="muted"></span></div>
+    <label class="field">Your keyboard has
+      <select id="s-keys"><option value="61">61 keys (C2–C7)</option><option value="76">76 keys (E1–G7)</option><option value="88">88 keys (A0–C8)</option></select></label>
+    <p class="muted small">Notes in the music that are lower or higher than your keyboard goes are accepted an octave inside it, and their keys light up there.</p>
     <h3>Or use the microphone</h3>
     <p>For acoustic pianos. It hears one note at a time, so for chords any one of the chord's notes counts. A quiet room helps.</p>
     <div class="row"><button id="s-mic">🎤 Turn on microphone</button><span id="s-mic-st" class="muted"></span></div>
@@ -61,6 +64,11 @@ export function init(el: HTMLElement) {
     <button id="s-reset">Reset all progress</button>
   </div>`;
 
+  $<HTMLSelectElement>('s-keys').value = s.pianoKeys;
+  $<HTMLSelectElement>('s-keys').onchange = (e) => {
+    s.pianoKeys = (e.target as HTMLSelectElement).value as typeof s.pianoKeys;
+    save();
+  };
   $('s-midi').onclick = async () => {
     try {
       await input.enableMidi();

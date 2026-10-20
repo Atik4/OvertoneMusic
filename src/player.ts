@@ -1,4 +1,5 @@
 import { synth } from './synth';
+import { store } from './storage';
 
 /**
  * Score player (like MuseScore's): play/pause, seek by bar, live tempo, loop, hands, metronome,
@@ -6,7 +7,19 @@ import { synth } from './synth';
  */
 
 export interface SNote { midi: number; staff: number; durQ: number }
-export interface Step { idx: number; timeQ: number; measure: number; notes: SNote[]; els: SVGGElement[] }
+/** A note's head on the sheet, for writing its letter name in it or colouring it after a run. */
+export interface NoteHead { midi: number; staff: number; name: string; hollow: boolean; group: SVGGElement; el: SVGGraphicsElement | null }
+export interface Step { idx: number; timeQ: number; measure: number; notes: SNote[]; els: SVGGElement[]; heads: NoteHead[] }
+
+/** Which beat of its bar (0 = the downbeat) time `q` falls on, going by the bar the music is in at that moment. */
+export function beatInBar(steps: Step[], q: number, beatQ: number): number {
+  let i = 0;
+  while (i + 1 < steps.length && steps[i + 1].timeQ <= q + 1e-6) i++;
+  let first = i;
+  while (first > 0 && steps[first - 1].measure === steps[i].measure) first--;
+  const barStart = steps[first]?.timeQ ?? 0;
+  return Math.max(0, Math.round((q - barStart) / beatQ));
+}
 
 export interface PlayerHost {
   steps(): Step[];
@@ -211,11 +224,12 @@ function tick() {
     }
   }
   const bq = host.beatQ();
-  const barQ = bq * host.beatsPerBar();
   while (nextBeatQ < horizon && nextBeatQ < limit) {
-    if (checked('pl-metro') || nextBeatQ < playFromQ - 1e-6) {
-      const rel = (((nextBeatQ % barQ) + barQ) % barQ);
-      synth.click((nextBeatQ - posQ) / qps, rel < 1e-6);
+    const countIn = nextBeatQ < playFromQ - 1e-6;
+    if (checked('pl-metro') || countIn) {
+      // The count-in counts its own bar ("one, two, three, four"), then the music's bars take over.
+      const beat = countIn ? Math.round((nextBeatQ - playFromQ) / bq) + host.beatsPerBar() : beatInBar(steps, nextBeatQ, bq);
+      synth.metronome((nextBeatQ - posQ) / qps, beat, bq / qps, store.settings.counting);
     }
     nextBeatQ += bq;
   }

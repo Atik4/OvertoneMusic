@@ -1,3 +1,4 @@
+import type { Counting } from './synth';
 import type { LeftHand } from './simplify';
 export type Hands = 'right' | 'left' | 'both';
 
@@ -28,6 +29,15 @@ export interface Settings {
   micEnabled: boolean;
   practiceShow: 'all' | 'bar' | 'note';
   showKbd: boolean;
+  /** Letter names inside the noteheads. */
+  noteNames: boolean;
+  /** Key hints on the keyboard: always, only after a few seconds without the right note, or never. */
+  hintMode: 'always' | 'stuck' | 'off';
+  counting: Counting;
+  /** Size of the player's keyboard: written notes beyond it are accepted an octave inside it. */
+  pianoKeys: '61' | '76' | '88';
+  /** Big, touch-friendly layout; undefined = on for touch screens. */
+  tablet?: boolean;
 }
 
 interface Data {
@@ -43,7 +53,7 @@ interface Data {
 const KEY = 'pianoCoach.v1';
 
 const defaults: Data = {
-  settings: { kbdRange: '36-96', showNames: false, volume: 0.7, micGate: 0.01, micLatency: 70, midiEnabled: false, micEnabled: false, practiceShow: 'all', showKbd: true },
+  settings: { kbdRange: '36-96', showNames: false, volume: 0.7, micGate: 0.01, micLatency: 70, midiEnabled: false, micEnabled: false, practiceShow: 'all', showKbd: true, noteNames: false, hintMode: 'always', counting: 'click', pianoKeys: '61' },
   pieces: {},
   reading: { notes: {}, bestChallenge: 0, streamNpm: 30, bestStreamNpm: 0, bestWaitNpm: 0 },
   ear: {},

@@ -22,11 +22,15 @@ Use **Chrome or Edge** (Safari has no Web MIDI). Everything stays in your browse
 
 | Tab | What it does |
 |---|---|
-| **Practice** | Sheet music with a moving cursor. **Wait for me** mode waits until you play the right note(s). **Play along** mode keeps the beat, with a count-in and metronome, and scores you on timing (early/late in ms). Choose right hand, left hand or both (it can play the other hand for you). You can loop any bars. The **speed trainer** starts slow and raises the tempo after each run of 90% or better, until your target. Results point out your tough bars. **Show: one bar / one note at a time** hides the notes you haven't reached, so you have to read them (in Play along you see one note or bar ahead). **Key** transposes the piece up or down to 6 semitones: the sheet music, the notes it listens for and the Player all change at once, and the choice is remembered per piece. **Click any note** on the sheet to start from there: Start practises from that note and ▶ Play plays from it (clicking while it plays jumps there). **Left hand: Easier / Easiest** swaps the left hand for held block chords or single bass notes (one per half bar, held while the harmony stays the same); the melody is untouched. |
+| **Practice** | Sheet music with a moving cursor. **Wait for me** mode waits until you play the right note(s). **Play along** mode keeps the beat, with a count-in and metronome, and scores you on timing (early/late in ms). Choose right hand, left hand or both (it can play the other hand for you). You can loop any bars. The **speed trainer** starts slow and raises the tempo after each run of 90% or better, until your target. Results point out your tough bars. **Show: one bar / one note at a time** hides the notes you haven't reached, so you have to read them (in Play along you see one note or bar ahead). **Key** transposes the piece up or down to 6 semitones: the sheet music, the notes it listens for and the Player all change at once, and the choice is remembered per piece. **Click any note** on the sheet to start from there: Start practises from that note and ▶ Play plays from it (clicking while it plays jumps there). **Left hand: Easier / Easiest** swaps the left hand for held block chords or single bass notes (one per half bar, held while the harmony stays the same); the melody is untouched. **Note names** writes C, D, E… inside the noteheads. **Show keys: When stuck** shows the key only after 3 s without the right note (or after a wrong one). After a run, **wrong or missed notes turn red** on the sheet (orange: right note, off the beat). **Count** makes the metronome say "1 2 3 4" or "1 & 2 &" (clicks while the microphone is listening, so it doesn't hear the voice as notes). |
 | **Practice → Player** | Hear how the piece should sound before you play it, like MuseScore's player: play/pause, jump to any bar, change the tempo while it plays, loop bars, hear one hand alone, metronome and count-in. The cursor follows the music. |
 | **Note Reading** | Flash-card notes on treble/bass staff, with ledger lines and sharps/flats as options. Notes you miss come up more often. There's also a 60-second challenge. |
 | **Note Reading → Note stream** | An endless stream of random notes scrolls toward a play line, so there is nothing to memorise. **Wait for me** moves on only when you play the right note and tracks your reading speed (notes/min). **Keep moving** sends notes at a steady speed and speeds up after every 16 notes played with 90% or better. You can look ahead 1–10 notes, use treble, bass or the grand staff, and choose step-wise melodies or random jumps. |
 | **Ear Training** | Intervals (with song hints), chord qualities, and *Play it back*: hear a short melody and play it on your piano. The melody gets longer as you improve. |
+
+## On a tablet or phone
+
+**📱 Tablet** (top right; on by default on touch screens) gives bigger buttons and music, puts the less-used settings under **⚙ Options**, and keeps the screen awake while the app is open. A Bluetooth page-turner pedal works too: forward (Page Down / → / ↓) starts or restarts, back (Page Up / ← / ↑) stops. Use *Add to Home Screen* to open it full screen like an app.
 
 ## Your own music
 
@@ -63,7 +67,7 @@ It's a static site: Vercel detects Vite, runs `npm run build` and serves `dist/`
 - `src/reading.ts`, `src/stream.ts`, `src/ear.ts`: drills
 - `src/pieces.ts`, `src/score.ts`: built-in lessons and their text notation
 - `src/simplify.ts`: the easier left-hand versions
-- `src/synth.ts`: piano sound (Salamander samples, with a small synth while they load) and metronome
+- `src/synth.ts`: piano sound (Salamander samples, with a small synth while they load) and metronome, including the spoken counts in `public/count/` (macOS's Samantha voice)
 - `src/keyboard.ts`: on-screen keyboard
 - `src/setup.ts`, `src/storage.ts`: Setup tab, saved progress and settings
 

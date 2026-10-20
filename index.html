@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Piano Coach</title>
+    <!-- "Add to Home Screen" opens it full screen, like an app. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Piano Coach" />
+    <meta name="theme-color" content="#12151d" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎹</text></svg>" />
   </head>
   <body>
@@ -19,6 +27,7 @@
         <span id="st-input" class="chip">No input</span>
         <span id="st-heard" class="chip heard" title="Last note heard">—</span>
         <span id="st-streak" class="chip"></span>
+        <button id="tablet-toggle" class="chip">📱 Tablet</button>
       </div>
     </header>
     <div id="audio-banner" class="banner hidden">Click anywhere to turn on sound and the microphone.</div>

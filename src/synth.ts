@@ -14,10 +14,17 @@ for (let oct = 0; oct <= 8; oct++) {
   }
 }
 
+/** How the metronome sounds: clicks, or a voice counting the beats ("one, two…") and optionally the "and"s. */
+export type Counting = 'click' | 'beats' | 'and';
+// Spoken with macOS's Samantha voice (`say`), one short clip per word.
+const COUNT_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'and'];
+
 /** Piano sound: recorded grand piano samples, with a small additive synth as fallback while they load. */
 class Synth {
   private ctx?: AudioContext;
   private samples = new Map<number, AudioBuffer>();
+  /** Spoken counts, with where the word actually starts (the clips begin with a little silence). */
+  private counts = new Map<string, { buf: AudioBuffer; onset: number }>();
   private master!: GainNode;
   private bus!: GainNode;
   private busyUntil = 0;
@@ -34,6 +41,7 @@ class Synth {
       this.bus = this.ctx.createGain();
       this.bus.connect(this.master);
       this.loadSamples(this.ctx);
+      this.loadCounts(this.ctx);
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
     return this.ctx;
@@ -47,6 +55,23 @@ class Synth {
         .then((buf) => this.samples.set(midi, buf))
         .catch(() => {
           /* keep using the synth for this range */
+        });
+    }
+  }
+
+  private loadCounts(ctx: AudioContext) {
+    for (const word of COUNT_WORDS) {
+      fetch(`${import.meta.env.BASE_URL}count/${word}.m4a`)
+        .then((r) => r.arrayBuffer())
+        .then((b) => ctx.decodeAudioData(b))
+        .then((buf) => {
+          const data = buf.getChannelData(0);
+          let i = 0;
+          while (i < data.length && Math.abs(data[i]) < 0.02) i++;
+          this.counts.set(word, { buf, onset: i / buf.sampleRate });
+        })
+        .catch(() => {
+          /* that count stays a click */
         });
     }
   }
@@ -187,6 +212,30 @@ class Synth {
 
   chord(midis: number[], dur: number, when = 0, velocity = 0.7) {
     for (const m of midis) this.note(m, dur, when, velocity);
+  }
+
+  /**
+   * One metronome beat, `when` seconds from now. Counting aloud says the beat number on the beat
+   * (and "and" half-way to the next one); bars longer than six beats, or clips not loaded yet, fall back to clicks.
+   */
+  metronome(when: number, beatInBar: number, beatSec: number, mode: Counting) {
+    if (mode === 'click' || !this.say(COUNT_WORDS[beatInBar < 6 ? beatInBar : -1], when, beatInBar === 0)) {
+      this.click(when, beatInBar === 0);
+    }
+    if (mode === 'and') this.say('and', when + beatSec / 2, false);
+  }
+
+  private say(word: string | undefined, when: number, accent: boolean): boolean {
+    const clip = word ? this.counts.get(word) : undefined;
+    if (!clip) return false;
+    const ctx = this.audio;
+    const src = ctx.createBufferSource();
+    src.buffer = clip.buf;
+    const g = ctx.createGain();
+    g.gain.value = accent ? 1 : 0.75;
+    src.connect(g).connect(this.bus);
+    src.start(ctx.currentTime + Math.max(0, when), clip.onset);
+    return true;
   }
 
   click(when = 0, accent = false) {

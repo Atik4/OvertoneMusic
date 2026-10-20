@@ -1,17 +1,17 @@
-import { KeyEnum, KeyInstruction, OpenSheetMusicDisplay, PointF2D, TransposeCalculator } from 'opensheetmusicdisplay';
+import { KeyEnum, KeyInstruction, OpenSheetMusicDisplay, Pitch, PointF2D, TransposeCalculator } from 'opensheetmusicdisplay';
 import { PIECES, pieceTitle, type Piece } from './pieces';
 import { toMusicXML } from './score';
 import { synth } from './synth';
 import { kbd } from './keyboard';
-import { isTypingTarget, type NoteEvt } from './input';
+import { input, isTypingTarget, type NoteEvt } from './input';
 import { store, save, pieceProgress, saveUpload, loadUpload, deleteUpload, type Hands } from './storage';
 import { clamp, midiToName } from './music';
 import * as player from './player';
 import { canSimplify, simplifyLeftHand, type LeftHand } from './simplify';
-import type { SNote, Step } from './player';
+import { beatInBar, type NoteHead, type SNote, type Step } from './player';
 
 interface Expected { midi: number; t: number; measure: number; step: number; hit: boolean; missed: boolean }
-interface SoundEvent { t: number; midi?: number; dur?: number; accent?: boolean }
+interface SoundEvent { t: number; midi?: number; dur?: number; beat?: number }
 
 interface WaitRun {
   mode: 'wait';
@@ -23,6 +23,8 @@ interface WaitRun {
   errors: number;
   measureErr: Map<number, number>;
   t0: number;
+  /** Notes to colour on the sheet afterwards: "stepIdx:midi" -> how it went. */
+  marks: Map<string, Mark>;
 }
 interface TimedRun {
   mode: 'tempo';
@@ -43,8 +45,10 @@ interface TimedRun {
   offsets: number[];
   autoplayed: { midi: number; t: number }[];
   measureErr: Map<number, number>;
+  marks: Map<string, Mark>;
   raf: number;
 }
+type Mark = 'bad' | 'off';
 
 let root: HTMLElement;
 let osmd: OpenSheetMusicDisplay;
@@ -66,6 +70,32 @@ let visible = false;
 let loaded = false;
 let run: WaitRun | TimedRun | null = null;
 let repeatTimer: number | undefined;
+let hintTimer: number | undefined;
+/** Mistakes from the last run, coloured on the sheet until the next run (kept so a re-render can redraw them). */
+let lastMarks = new Map<string, Mark>();
+/** In "When stuck" mode, how long to wait for the right note before showing the key. */
+const STUCK_MS = 3000;
+
+/** "Ready", plus a heads-up when some notes are beyond the player's keyboard. */
+function readyText(): [string, 'warn' | ''] {
+  const beyond = steps.flatMap((s) => s.notes).filter((n) => playable(n.midi) !== n.midi).length;
+  if (!beyond) return ['Ready. Press Start (or Space).', ''];
+  return [`Ready. ${beyond} notes go beyond your ${store.settings.pianoKeys}-key keyboard: play them an octave inside it (the keys light up there). Keyboard size is in Setup.`, 'warn'];
+}
+
+/** Lowest and highest key (MIDI) of each keyboard size. */
+const KEY_RANGE = { '61': [36, 96], '76': [28, 103], '88': [21, 108] } as const;
+/** Where to play a written note on the player's keyboard: notes beyond it move by octaves to fit. */
+function playable(m: number) {
+  const [lo, hi] = KEY_RANGE[store.settings.pianoKeys];
+  while (m < lo) m += 12;
+  while (m > hi) m -= 12;
+  return m;
+}
+/** Playing the written note counts, and so does its stand-in on a smaller keyboard. */
+const matches = (written: number, played: number) => played === written || played === playable(written);
+
+const PEDAL: Record<string, 'start' | 'stop'> = { PageDown: 'start', ArrowRight: 'start', ArrowDown: 'start', PageUp: 'stop', ArrowLeft: 'stop', ArrowUp: 'stop' };
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>('#' + id)!;
 const bump = (m: Map<number, number>, k: number) => m.set(k, (m.get(k) ?? 0) + 1);
@@ -86,12 +116,13 @@ export function init(el: HTMLElement) {
       <select id="p-hands"><option value="right">Right hand</option><option value="left">Left hand</option><option value="both">Both hands</option></select></label>
     <label class="field">Mode
       <select id="p-mode"><option value="wait">Wait for me — learn the notes</option><option value="tempo">Play along — keep the beat</option></select></label>
-    <label class="field">Show
+    <button id="p-opts" class="tablet-only" title="More settings">⚙ Options</button>
+    <label class="field opt">Show
       <select id="p-show"><option value="all">Whole piece</option><option value="bar">One bar at a time</option><option value="note">One note at a time</option></select></label>
-    <label class="field">Key <select id="p-key"></select></label>
-    <label class="field">Left hand
+    <label class="field opt">Key <select id="p-key"></select></label>
+    <label class="field opt">Left hand
       <select id="p-lh"><option value="written">As written</option><option value="chords">Easier: block chords</option><option value="bass">Easiest: bass notes</option></select></label>
-    <label class="field">Bars <span class="row tight"><input id="p-from" type="number" min="1" placeholder="from"> – <input id="p-to" type="number" min="1" placeholder="to"></span></label>
+    <label class="field opt">Bars <span class="row tight"><input id="p-from" type="number" min="1" placeholder="from"> – <input id="p-to" type="number" min="1" placeholder="to"></span></label>
   </div>
   <div class="panel row">
     <label class="field grow">Speed <span class="row tight"><input id="p-tempo" type="range" min="25" max="200" step="5"><b id="p-tempo-v"></b></span></label>
@@ -100,8 +131,12 @@ export function init(el: HTMLElement) {
       <label class="check"><input type="checkbox" id="p-metro" checked> Metronome</label>
       <label class="check"><input type="checkbox" id="p-other" checked> Play other hand for me</label>
     </span>
-    <label class="check"><input type="checkbox" id="p-repeat"> Auto-repeat</label>
-    <label class="check"><input type="checkbox" id="p-hints" checked> Show keys</label>
+    <label class="check opt"><input type="checkbox" id="p-repeat"> Auto-repeat</label>
+    <label class="field opt">Show keys
+      <select id="p-hints"><option value="always">Always</option><option value="stuck">When stuck (after 3 s)</option><option value="off">Never</option></select></label>
+    <label class="check opt"><input type="checkbox" id="p-names"> Note names</label>
+    <label class="field opt" title="How the metronome sounds, here and in the Player">Count
+      <select id="p-count"><option value="click">Clicks</option><option value="beats">Say 1 2 3 4</option><option value="and">Say 1 & 2 &</option></select></label>
   </div>
   <div class="panel row">
     <button class="primary" id="p-start">▶ Start <kbd>Space</kbd></button>
@@ -133,6 +168,7 @@ export function init(el: HTMLElement) {
     void loadPiece(PIECES[0].id);
   };
   $('p-start').onclick = () => start();
+  $('p-opts').onclick = () => root.classList.toggle('show-opts');
   $<HTMLSelectElement>('p-mode').onchange = onModeChange;
   $<HTMLSelectElement>('p-show').value = store.settings.practiceShow;
   $<HTMLSelectElement>('p-show').onchange = () => {
@@ -181,7 +217,25 @@ export function init(el: HTMLElement) {
     stop();
     showWaitHints();
   };
-  $<HTMLInputElement>('p-hints').onchange = () => (checked('p-hints') ? showWaitHints() : kbd.clear('hint'));
+  const settings = store.settings;
+  $<HTMLSelectElement>('p-hints').value = settings.hintMode;
+  $<HTMLSelectElement>('p-hints').onchange = () => {
+    settings.hintMode = $<HTMLSelectElement>('p-hints').value as typeof settings.hintMode;
+    save();
+    if (run?.mode === 'wait') enterWaitStep(run);
+    else if (!run) showWaitHints();
+  };
+  $<HTMLInputElement>('p-names').checked = settings.noteNames;
+  $<HTMLInputElement>('p-names').onchange = () => {
+    settings.noteNames = checked('p-names');
+    save();
+    drawNoteNames();
+  };
+  $<HTMLSelectElement>('p-count').value = settings.counting;
+  $<HTMLSelectElement>('p-count').onchange = () => {
+    settings.counting = $<HTMLSelectElement>('p-count').value as typeof settings.counting;
+    save();
+  };
   for (const id of ['p-from', 'p-to']) $(id).addEventListener('change', () => ((fromIdx = 0), stop(), showWaitHints()));
   $('p-score').addEventListener('click', onScoreClick);
   for (const b of root.querySelectorAll('button')) b.addEventListener('click', () => b.blur());
@@ -193,7 +247,18 @@ export function init(el: HTMLElement) {
       if (run) stop('Stopped.');
       else start();
     } else if (e.key === 'Escape') stop('Stopped.');
+    else if (document.body.classList.contains('tablet') && PEDAL[e.key]) {
+      // Bluetooth page-turner pedals send these keys: forward starts (or restarts), back stops.
+      e.preventDefault();
+      if (PEDAL[e.key] === 'start') start();
+      else stop('Stopped.');
+    }
   });
+}
+
+/** Redraw the sheet for a new layout (e.g. tablet mode, which shows it bigger). */
+export function relayout() {
+  onResize();
 }
 
 export function show() {
@@ -273,6 +338,7 @@ async function loadPiece(id: string, raw?: string) {
     writtenKey = readKey();
     osmd.Sheet.Transpose = pieceProgress(id).transpose ?? 0;
     if (osmd.Sheet.Transpose) osmd.updateGraphic();
+    osmd.Zoom = sheetZoom();
     osmd.render();
   } catch (err) {
     return fb(`Couldn't open this music: ${(err as Error).message ?? err}`, 'bad');
@@ -299,7 +365,7 @@ async function loadPiece(id: string, raw?: string) {
   osmd.cursor.reset();
   showWaitHints();
   applyReveal();
-  fb('Ready. Press Start (or Space).');
+  fb(...readyText());
 }
 
 async function pieceXML(p: Piece): Promise<string | null> {
@@ -309,6 +375,7 @@ async function pieceXML(p: Piece): Promise<string | null> {
 }
 
 function analyze() {
+  lastMarks = new Map(); // a new piece, key or left hand: old mistakes no longer line up
   const sheet = osmd.Sheet;
   measureCount = sheet.SourceMeasures.length;
   const ts = sheet.SourceMeasures[0]?.ActiveTimeSignature;
@@ -330,12 +397,97 @@ function analyze() {
       // OSMD halfTone: C4 = 48, MIDI C4 = 60.
       notes.push({ midi: n.halfTone + 12, staff: n.ParentStaff?.idInMusicSheet ?? 0, durQ: n.Length.RealValue * 4 });
     }
-    steps.push({ idx, timeQ: c.Iterator.CurrentEnrolledTimestamp.RealValue * 4, measure: c.Iterator.CurrentMeasureIndex, notes, els: noteElements() });
+    steps.push({ idx, timeQ: c.Iterator.CurrentEnrolledTimestamp.RealValue * 4, measure: c.Iterator.CurrentMeasureIndex, notes, ...graphics() });
     c.next();
     idx++;
   }
   c.reset();
+  linkHeads();
+  drawNoteNames();
 }
+
+/** Bigger notes when their names are written in them, and on tablets (read from a music stand). */
+const sheetZoom = () => (document.body.classList.contains('tablet') ? 1.3 : 1) * (store.settings.noteNames ? 1.2 : 1);
+
+const ACCIDENTAL: Record<number, string> = { 1: '♯', [-1]: '♭', 2: '𝄪', [-2]: '𝄫' };
+
+/** The SVG of the notes under the cursor: whole groups (to hide/fade) and each note's head (to label/colour). */
+function graphics(): { els: SVGGElement[]; heads: NoteHead[] } {
+  const heads: NoteHead[] = [];
+  for (const g of osmd.cursor.GNotesUnderCursor()) {
+    const n = g.sourceNote;
+    if (n.isRest() || n.IsGraceNote) continue;
+    const group = (g as unknown as { getSVGGElement?: () => SVGGElement }).getSVGGElement?.();
+    if (!group) continue;
+    const p: Pitch = n.TransposedPitch ?? n.Pitch;
+    const name = Pitch.getNoteEnumString(p.FundamentalNote) + (ACCIDENTAL[p.AccidentalHalfTones] ?? '');
+    heads.push({ midi: n.halfTone + 12, staff: n.ParentStaff?.idInMusicSheet ?? 0, name, hollow: n.Length.RealValue >= 0.5, group, el: null });
+  }
+  return { els: noteElements(), heads };
+}
+
+/**
+ * Pair each note with its head in the drawing: a chord's heads, bottom to top, are its notes from low to high.
+ * Repeats bring the cursor past the same drawn chord again, so notes are matched by pitch, not by order.
+ */
+function linkHeads() {
+  const byGroup = new Map<SVGGElement, NoteHead[]>();
+  for (const s of steps) for (const h of s.heads) byGroup.set(h.group, [...(byGroup.get(h.group) ?? []), h]);
+  for (const [group, notes] of byGroup) {
+    const els = [...group.querySelectorAll<SVGGraphicsElement>('.vf-notehead')].sort((a, b) => b.getBBox().y - a.getBBox().y);
+    const midis = [...new Set(notes.map((n) => n.midi))].sort((a, b) => a - b);
+    for (const h of notes) h.el = els[midis.indexOf(h.midi)] ?? null;
+  }
+}
+
+/** Letter names inside the noteheads (they fade and hide with the notes, as they're drawn in the same group). */
+function drawNoteNames() {
+  if (loaded && osmd.Zoom !== sheetZoom()) return onResize(); // names need bigger notes: redraw, which comes back here
+  $('p-score').querySelectorAll('.nn').forEach((t) => t.remove());
+  if (!store.settings.noteNames) return;
+  const done = new Set<SVGGraphicsElement>(); // a repeated bar passes the same head twice
+  for (const s of steps) {
+    for (const h of s.heads) {
+      if (!h.el || done.has(h.el)) continue;
+      done.add(h.el);
+      const b = h.el.getBBox();
+      if (h.hollow) {
+        // Half and whole notes are an outline with a small hole, crossed by staff lines: blank a patch for the letter.
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        bg.setAttribute('class', 'nn nn-bg');
+        bg.setAttribute('cx', String(b.x + b.width / 2));
+        bg.setAttribute('cy', String(b.y + b.height / 2));
+        bg.setAttribute('rx', String(b.width * 0.36));
+        bg.setAttribute('ry', String(b.height * 0.38));
+        h.group.appendChild(bg);
+      }
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('class', 'nn' + (h.hollow ? ' hollow' : ''));
+      t.setAttribute('x', String(b.x + b.width / 2));
+      t.setAttribute('y', String(b.y + b.height / 2));
+      t.setAttribute('font-size', String(Math.min(b.height * 0.95, (b.width * 1.5) / h.name.length)));
+      t.textContent = h.name;
+      h.group.appendChild(t);
+    }
+  }
+}
+
+/** Colour the notes you missed or played wrong (red) or off the beat (orange). */
+function drawMarks() {
+  $('p-score').querySelectorAll('.nh-bad, .nh-off').forEach((e) => e.classList.remove('nh-bad', 'nh-off'));
+  for (const s of steps) {
+    for (const h of s.heads) {
+      const m = lastMarks.get(`${s.idx}:${h.midi}`);
+      if (m && h.el) h.el.classList.add(`nh-${m}`);
+    }
+  }
+}
+
+function clearMarks() {
+  lastMarks = new Map();
+  drawMarks();
+}
+
 
 /** SVG groups of the notes under the cursor (head, stem, accidental, ledger lines), so we can hide them. */
 function noteElements(): SVGGElement[] {
@@ -378,6 +530,7 @@ function transpose() {
   player.pause();
   osmd.Sheet.Transpose = pieceProgress(pieceId).transpose ?? 0;
   osmd.updateGraphic();
+  osmd.Zoom = sheetZoom();
   osmd.render();
   analyze();
   player.load();
@@ -387,23 +540,27 @@ function transpose() {
   osmd.cursor.reset();
   showWaitHints();
   applyReveal();
-  fb('Ready. Press Start (or Space).');
+  fb(...readyText());
 }
 
 /** Re-render to fit the new width, then re-link note elements and put the cursor back. */
 function onResize() {
   if (!loaded || !visible) return;
   const at = curIdx;
+  osmd.Zoom = sheetZoom();
   osmd.render();
   const c = osmd.cursor;
   c.hide();
   c.reset();
   for (const s of steps) {
-    s.els = noteElements();
+    Object.assign(s, graphics());
     c.next();
   }
   c.show();
   c.reset();
+  linkHeads();
+  drawNoteNames();
+  drawMarks();
   curIdx = 0;
   moveCursorTo(at);
 }
@@ -526,8 +683,11 @@ function fb(text: string, cls: 'good' | 'bad' | 'warn' | '' = '') {
   el.className = 'feedback ' + (cls ? cls + '-t' : '');
 }
 
-function setHints(notes: SNote[]) {
-  if (checked('p-hints')) kbd.setHints(notes.map((n) => n.midi));
+/** Show keys to play. "When stuck" shows them only when `stuck` (after a wait or a wrong note); "Never" never. */
+function setHints(notes: SNote[], stuck = false) {
+  clearTimeout(hintTimer);
+  const m = store.settings.hintMode;
+  if (m === 'always' || (m === 'stuck' && stuck)) kbd.setHints(notes.map((n) => playable(n.midi)));
   else kbd.clear('hint');
 }
 
@@ -546,6 +706,7 @@ function start() {
   stop();
   synth.audio; // unlock audio on this click
   $('p-result').classList.add('hidden');
+  clearMarks();
   player.pause();
   if (mode() === 'wait') startWait();
   else startTimed();
@@ -555,6 +716,7 @@ function start() {
 
 function stop(msg?: string) {
   clearTimeout(repeatTimer);
+  clearTimeout(hintTimer);
   if (osmd) osmd.FollowCursor = false;
   if (!run) return;
   if (run.mode !== 'wait') cancelAnimationFrame(run.raf);
@@ -577,7 +739,7 @@ export function noteOn(e: NoteEvt) {
 function startWait() {
   const list = rangeSteps().filter((s) => required(s).length);
   if (!list.length) return fb('No notes for this hand in those bars.', 'bad');
-  run = { mode: 'wait', list, pos: 0, got: new Set(), stepErr: false, clean: 0, errors: 0, measureErr: new Map(), t0: performance.now() };
+  run = { mode: 'wait', list, pos: 0, got: new Set(), stepErr: false, clean: 0, errors: 0, measureErr: new Map(), t0: performance.now(), marks: new Map() };
   enterWaitStep(run);
   fb('Play the highlighted note(s). I’ll wait for you.');
 }
@@ -587,15 +749,19 @@ function enterWaitStep(r: WaitRun) {
   moveCursorTo(s.idx);
   r.got.clear();
   r.stepErr = false;
-  setHints(required(s));
+  const need = required(s);
+  setHints(need);
+  if (store.settings.hintMode === 'stuck') hintTimer = window.setTimeout(() => setHints(need, true), STUCK_MS);
   $('p-stats').innerHTML = stat(`${r.pos}/${r.list.length}`, 'notes') + stat(String(r.errors), 'mistakes');
 }
 
 function waitNote(r: WaitRun, e: NoteEvt) {
   const s = r.list[r.pos];
   const need = required(s).map((n) => n.midi);
-  if (need.includes(e.midi)) {
-    r.got.add(e.midi);
+  const hit = need.filter((m) => matches(m, e.midi));
+  if (hit.length) {
+    for (const m of hit) r.got.add(m); // e.g. E1 and E2 both written, one E2 on a 61-key keyboard
+
     kbd.flash(e.midi, 'good');
     // The mic hears one note at a time, so any note of a chord counts.
     const done = need.every((m) => r.got.has(m)) || e.source === 'mic';
@@ -609,8 +775,10 @@ function waitNote(r: WaitRun, e: NoteEvt) {
     r.errors++;
     r.stepErr = true;
     bump(r.measureErr, s.measure);
+    for (const n of need) r.marks.set(`${s.idx}:${n}`, 'bad');
+    setHints(required(s), true);
     kbd.flash(e.midi, 'bad');
-    fb(`You played ${midiToName(e.midi)} — looking for ${need.map(midiToName).join(' + ')}`, 'bad');
+    fb(`You played ${midiToName(e.midi)} — looking for ${[...new Set(need.map(playable))].map(midiToName).join(' + ')}`, 'bad');
     $('p-stats').innerHTML = stat(`${r.pos}/${r.list.length}`, 'notes') + stat(String(r.errors), 'mistakes');
   }
 }
@@ -629,9 +797,9 @@ function startTimed() {
 
   const events: SoundEvent[] = [];
   const exp: Expected[] = [];
-  for (let b = 0; b < beatsPerBar; b++) events.push({ t: -countIn + b * beatQ * spq, accent: b === 0 });
+  for (let b = 0; b < beatsPerBar; b++) events.push({ t: -countIn + b * beatQ * spq, beat: b });
   if (checked('p-metro')) {
-    for (let b = 0; b * beatQ < endQ - t0q - 1e-6; b++) events.push({ t: b * beatQ * spq, accent: b % beatsPerBar === 0 });
+    for (let b = 0; b * beatQ < endQ - t0q - 1e-6; b++) events.push({ t: b * beatQ * spq, beat: beatInBar(steps, t0q + b * beatQ, beatQ) });
   }
   const autoOther = checked('p-other') && hands() !== 'both';
   for (const s of list) {
@@ -651,7 +819,7 @@ function startTimed() {
     endSec: (endQ - t0q) * spq,
     win: clamp(0.35 * spq, 0.12, 0.3),
     events, evPos: 0, exp, missPos: 0, cursorPos: 0, extras: 0, offsets: [], autoplayed: [],
-    measureErr: new Map(), raf: 0,
+    measureErr: new Map(), marks: new Map(), raf: 0,
   };
   moveCursorTo(list[0].idx);
   setHints(required(list[0]));
@@ -669,7 +837,8 @@ function tick() {
     const ev = r.events[r.evPos++];
     const when = r.startCtx + ev.t - synth.now();
     if (when < -0.05) continue;
-    if (ev.midi === undefined) synth.click(when, ev.accent);
+    // A spoken count would sound like notes to the microphone, so with the mic on it stays clicks.
+    if (ev.midi === undefined) synth.metronome(when, ev.beat ?? 0, beatQ * r.spq, input.micOn ? 'click' : store.settings.counting);
     else {
       synth.note(ev.midi, Math.max(0.15, ev.dur! * 0.95), when, 0.65, { track: false });
       r.autoplayed.push({ midi: ev.midi, t: ev.t });
@@ -699,6 +868,7 @@ function tick() {
     const x = r.exp[r.missPos++];
     if (!x.hit) {
       x.missed = true;
+      r.marks.set(`${x.step}:${x.midi}`, 'bad');
       bump(r.measureErr, x.measure);
       kbd.flash(x.midi, 'bad');
       fb(`Missed ${midiToName(x.midi)}`, 'bad');
@@ -724,7 +894,7 @@ function timedNote(r: TimedRun, e: NoteEvt) {
   for (let i = Math.max(0, r.missPos - 4); i < r.exp.length; i++) {
     const x = r.exp[i];
     if (x.t - t > r.win) break;
-    if (x.hit || x.missed || x.midi !== e.midi || Math.abs(x.t - t) > r.win) continue;
+    if (x.hit || x.missed || !matches(x.midi, e.midi) || Math.abs(x.t - t) > r.win) continue;
     if (!best || Math.abs(x.t - t) < Math.abs(best.t - t)) best = x;
   }
   if (!best) {
@@ -734,9 +904,12 @@ function timedNote(r: TimedRun, e: NoteEvt) {
     return fb(`Extra note: ${midiToName(e.midi)}`, 'bad');
   }
   best.hit = true;
+  // Notes written an octave apart beyond the keyboard land on the same key: one press plays both.
+  for (const x of r.exp) if (x.step === best.step && !x.hit && matches(x.midi, e.midi)) x.hit = true;
   if (e.source === 'mic') for (const x of r.exp) if (x.step === best.step) x.hit = true;
   const off = t - best.t;
   r.offsets.push(off);
+  if (Math.abs(off) > r.win * 0.6) r.marks.set(`${best.step}:${best.midi}`, 'off');
   kbd.flash(e.midi, 'good');
   if (Math.abs(off) < 0.07) fb('Perfect!', 'good');
   else fb(off < 0 ? `A bit early (${Math.round(-off * 1000)} ms)` : `A bit late (${Math.round(off * 1000)} ms)`, 'warn');
@@ -787,6 +960,13 @@ function finish() {
         html += `<p>Almost — get 90% at this speed to move up.</p>`;
       }
     }
+  }
+
+  lastMarks = r.marks;
+  drawMarks();
+  if (r.marks.size) {
+    const off = [...r.marks.values()].some((m) => m === 'off');
+    html += `<p>On the sheet: <span class="bad-t">red</span> notes were missed or played wrong${off ? ', <span class="warn-t">orange</span> ones were right but off the beat' : ''}.</p>`;
   }
 
   const tough = [...r.measureErr].sort((a, b) => b[1] - a[1]).slice(0, 3);

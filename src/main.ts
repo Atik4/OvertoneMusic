@@ -38,6 +38,34 @@ document.addEventListener('change', (e) => {
   if (e.target instanceof HTMLSelectElement) e.target.blur();
 });
 
+// Tablet mode: big touch-friendly controls and sheet, the screen kept awake, pedal support.
+// On by default on touch screens; the header button switches it either way.
+const tabletBtn = document.getElementById('tablet-toggle')!;
+let wakeLock: WakeLockSentinel | null = null;
+async function keepAwake(on: boolean) {
+  if (!on) return void (await wakeLock?.release(), (wakeLock = null));
+  if (wakeLock || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+  wakeLock = await navigator.wakeLock.request('screen').catch(() => null);
+  wakeLock?.addEventListener('release', () => (wakeLock = null));
+}
+function applyTablet() {
+  const on = store.settings.tablet ?? matchMedia('(pointer: coarse)').matches;
+  document.body.classList.toggle('tablet', on);
+  tabletBtn.classList.toggle('on', on);
+  tabletBtn.title = on ? 'Tablet mode is on (screen stays awake). Click to turn off.' : 'Tablet mode: bigger controls and music, screen stays awake';
+  void keepAwake(on);
+  practice.relayout();
+}
+tabletBtn.onclick = () => {
+  store.settings.tablet = !document.body.classList.contains('tablet');
+  save();
+  applyTablet();
+  tabletBtn.blur();
+};
+// The screen lock is dropped when the page is hidden; take it again on return.
+document.addEventListener('visibilitychange', () => void keepAwake(document.body.classList.contains('tablet')));
+applyTablet();
+
 // The on-screen keyboard can be hidden, e.g. when reading from the music with a real piano.
 const kbdToggle = document.getElementById('kbd-toggle')!;
 kbdToggle.onclick = () => {

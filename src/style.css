@@ -100,3 +100,29 @@ body.kbd-hidden #kbd-toggle { bottom: 14px; font-size: 15px; padding: 8px 16px; 
 
 /* Click a note to play or practise from there. */
 #p-score svg { cursor: pointer; }
+
+/* Note names written inside the noteheads, and notes marked after a run. */
+#p-score .nn { fill: #fff; font-family: system-ui, sans-serif; font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+#p-score .nn.hollow { fill: #111; }
+#p-score .nn-bg { fill: #fdfcf8; }
+#p-score .nh-bad path { fill: #dc2626; }
+#p-score .nh-off path { fill: #f59e0b; }
+
+/* Tablet mode: bigger touch targets and music, the less-used settings behind "⚙ Options". */
+.tablet-only { display: none; }
+body.tablet .tablet-only { display: inline-block; }
+body.tablet #tab-practice:not(.show-opts) .opt { display: none; }
+#tab-practice.show-opts #p-opts { border-color: var(--accent); }
+#tablet-toggle { cursor: pointer; }
+#tablet-toggle.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+body.tablet { font-size: 17px; }
+body.tablet header { padding: 6px 10px; gap: 10px; }
+body.tablet #st-streak { display: none; }
+body.tablet main { max-width: none; padding-left: 8px; padding-right: 8px; }
+body.tablet select, body.tablet input[type=number], body.tablet button, body.tablet .btn { min-height: 44px; padding: 8px 14px; }
+body.tablet .chip { min-height: 0; padding: 6px 12px; }
+body.tablet input[type=checkbox] { width: 22px; height: 22px; }
+body.tablet input[type=range] { height: 36px; }
+
+body.tablet .panel { padding: 8px 10px; margin-bottom: 8px; }
+body.tablet #p-player .muted { display: none; }
